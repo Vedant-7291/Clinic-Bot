@@ -1,490 +1,237 @@
-// app/page.tsx - Main landing page with CRM dashboard
 'use client';
 
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import Link from 'next/link';
+import { useState } from 'react';
+import { 
+  Calendar, 
+  Clock, 
+  Users, 
+  Plus, 
+  ChevronLeft, 
+  ChevronRight,
+} from 'lucide-react';
 
-interface Appointment {
+interface StaffMember {
   id: string;
-  patientName: string;
-  phoneNumber: string;
-  patientType?: string;
-  department?: string;
-  preferredDate: string;
-  preferredTime: string;
-  symptoms: string;
-  hasInsurance?: string;
-  status: 'confirmed' | 'cancelled' | 'completed' | 'pending';
-  createdAt: string;
-  updatedAt: string;
+  name: string;
+  role: string;
+  department: string;
+  status: 'on-duty' | 'off-duty' | 'on-call';
 }
 
-interface DashboardStats {
-  totalAppointments: number;
-  todayAppointments: number;
-  newPatients: number;
-  returningPatients: number;
-  appointmentsByDepartment: Record<string, number>;
-  recentAppointments: Appointment[];
-}
+const staffMembers: StaffMember[] = [
+  { id: '1', name: 'Dr. Sarah Johnson', role: 'Senior Physician', department: 'Cardiology', status: 'on-duty' },
+  { id: '2', name: 'Dr. Michael Chen', role: 'Neurologist', department: 'Neurology', status: 'on-duty' },
+  { id: '3', name: 'Dr. Emily Davis', role: 'Pediatrician', department: 'Pediatrics', status: 'on-call' },
+  { id: '4', name: 'Dr. James Wilson', role: 'Orthopedic Surgeon', department: 'Orthopedics', status: 'off-duty' },
+  { id: '5', name: 'Dr. Maria Garcia', role: 'Cardiologist', department: 'Cardiology', status: 'on-duty' },
+];
 
-export default function Home() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'appointments'>('dashboard');
+const timeSlots = [
+  '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+  '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM',
+  '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM',
+];
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+export default function SchedulePage() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [statsRes, appointmentsRes] = await Promise.all([
-        axios.get('/api/dashboard/stats'),
-        axios.get('/api/dashboard/appointments'),
-      ]);
-      setStats(statsRes.data);
-      setAppointments(appointmentsRes.data);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    return { daysInMonth, firstDayOfMonth };
+  };
+
+  const { daysInMonth, firstDayOfMonth } = getDaysInMonth(currentDate);
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const getStatusColor = (status: StaffMember['status']) => {
+    switch (status) {
+      case 'on-duty': return 'bg-green-500';
+      case 'off-duty': return 'bg-gray-400';
+      case 'on-call': return 'bg-yellow-500';
+      default: return 'bg-gray-400';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      confirmed: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-      completed: 'bg-blue-100 text-blue-800',
-      pending: 'bg-yellow-100 text-yellow-800',
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  const getStatusText = (status: StaffMember['status']) => {
+    switch (status) {
+      case 'on-duty': return 'On Duty';
+      case 'off-duty': return 'Off Duty';
+      case 'on-call': return 'On Call';
+      default: return 'Unknown';
+    }
   };
-
-  const getStatusLabel = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f3f4f6',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '2rem',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏥</div>
-            <p style={{ color: '#6b7280' }}>Loading dashboard...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f3f4f6',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '2rem',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          maxWidth: '500px',
-          width: '100%'
-        }}>
-          <div style={{ color: '#ef4444', textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
-            <p style={{ marginBottom: '1rem' }}>{error}</p>
-            <button
-              onClick={fetchDashboardData}
-              style={{
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                padding: '0.5rem 1.5rem',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f3f4f6',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      {/* Navigation */}
-      <nav style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '0 1rem'
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          height: '64px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827' }}>
-              🏥 Clinic CRM
-            </h1>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              style={{
-                padding: '0.5rem 1rem',
-                border: 'none',
-                background: 'transparent',
-                color: activeTab === 'dashboard' ? '#2563eb' : '#6b7280',
-                borderBottom: activeTab === 'dashboard' ? '2px solid #2563eb' : '2px solid transparent',
-                cursor: 'pointer',
-                fontWeight: activeTab === 'dashboard' ? '600' : '400'
-              }}
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('appointments')}
-              style={{
-                padding: '0.5rem 1rem',
-                border: 'none',
-                background: 'transparent',
-                color: activeTab === 'appointments' ? '#2563eb' : '#6b7280',
-                borderBottom: activeTab === 'appointments' ? '2px solid #2563eb' : '2px solid transparent',
-                cursor: 'pointer',
-                fontWeight: activeTab === 'appointments' ? '600' : '400'
-              }}
-            >
-              Appointments
-            </button>
-          </div>
-          <button
-            onClick={fetchDashboardData}
-            style={{
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '4px',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Refresh
-          </button>
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-[#0A1628]">Schedule</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage appointments and staff shifts</p>
         </div>
-      </nav>
+        <button className="mt-4 lg:mt-0 btn-accent flex items-center gap-2">
+          <Plus size={18} />
+          New Appointment
+        </button>
+      </div>
 
-      {/* Main Content */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
-        {activeTab === 'dashboard' ? (
-          // Dashboard View
-          <div>
-            {/* Stats Cards */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '1rem',
-              marginBottom: '2rem'
-            }}>
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Appointments</p>
-                    <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827' }}>
-                      {stats?.totalAppointments || 0}
-                    </p>
-                  </div>
-                  <div style={{ fontSize: '2rem' }}>📋</div>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar */}
+        <div className="lg:col-span-2 card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-[#0A1628]">
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date())}
+                className="px-3 py-1 text-sm bg-[#0A1628] text-white rounded-lg hover:bg-[#1A3A5C] transition-colors"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1))}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="text-center text-xs font-semibold text-gray-500 py-2">
+                {day}
               </div>
+            ))}
+            
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+              <div key={`empty-${i}`} className="aspect-square" />
+            ))}
+            
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const dayNumber = i + 1;
+              const isToday = new Date().getDate() === dayNumber &&
+                new Date().getMonth() === currentDate.getMonth() &&
+                new Date().getFullYear() === currentDate.getFullYear();
+              const hasAppointment = [2, 5, 8, 12, 15, 18, 22, 25, 28].includes(dayNumber);
+              
+              return (
+                <button
+                  key={dayNumber}
+                  onClick={() => setSelectedDate(dayNumber)}
+                  className={`
+                    aspect-square flex flex-col items-center justify-center rounded-lg
+                    transition-all duration-200 relative
+                    ${selectedDate === dayNumber ? 'bg-[#1A3A5C] text-white' : ''}
+                    ${isToday && selectedDate !== dayNumber ? 'bg-blue-50 border-2 border-[#3B82F6]' : ''}
+                    ${!isToday && !selectedDate ? 'hover:bg-gray-50' : ''}
+                  `}
+                >
+                  <span className={`text-sm ${isToday && !selectedDate ? 'font-bold text-[#3B82F6]' : ''}`}>
+                    {dayNumber}
+                  </span>
+                  {hasAppointment && (
+                    <div className={`w-1 h-1 rounded-full mt-1 ${selectedDate === dayNumber ? 'bg-white' : 'bg-[#3B82F6]'}`} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Today's Appointments</p>
-                    <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827' }}>
-                      {stats?.todayAppointments || 0}
-                    </p>
+          <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-[#3B82F6] rounded-full" />
+              <span>Has appointments</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-[#3B82F6] rounded-full" />
+              <span>Today</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Staff on Duty */}
+        <div className="card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Users size={20} className="text-[#1A3A5C]" />
+            <h2 className="text-lg font-semibold text-[#0A1628]">Staff on Duty</h2>
+          </div>
+          
+          <div className="space-y-3">
+            {staffMembers.map((staff) => (
+              <div key={staff.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-10 h-10 bg-[#0A1628] rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {staff.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 ${getStatusColor(staff.status)} rounded-full border-2 border-white`} />
                   </div>
-                  <div style={{ fontSize: '2rem' }}>📅</div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#0A1628] truncate">{staff.name}</p>
+                    <p className="text-xs text-gray-500 truncate">{staff.role}</p>
+                  </div>
                 </div>
+                <span className="text-xs px-2 py-1 bg-white rounded-full shadow-sm whitespace-nowrap ml-2">
+                  {getStatusText(staff.status)}
+                </span>
               </div>
+            ))}
+          </div>
+        </div>
 
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>New Patients</p>
-                    <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827' }}>
-                      {stats?.newPatients || 0}
-                    </p>
-                  </div>
-                  <div style={{ fontSize: '2rem' }}>🆕</div>
-                </div>
+        {/* Time Slots */}
+        <div className="lg:col-span-3 card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-[#0A1628]">Detailed Schedule</h2>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#3B82F6] rounded" />
+                <span>Booked</span>
               </div>
-
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Returning Patients</p>
-                    <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#111827' }}>
-                      {stats?.returningPatients || 0}
-                    </p>
-                  </div>
-                  <div style={{ fontSize: '2rem' }}>🔄</div>
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-gray-200 rounded" />
+                <span>Available</span>
               </div>
             </div>
-
-            {/* Department Breakdown */}
-            {stats?.appointmentsByDepartment && Object.keys(stats.appointmentsByDepartment).length > 0 && (
-              <div style={{
-                backgroundColor: 'white',
-                padding: '1.5rem',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                marginBottom: '2rem'
-              }}>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem', color: '#111827' }}>
-                  Appointments by Department
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
-                  {Object.entries(stats.appointmentsByDepartment).map(([dept, count]) => (
-                    <div key={dept} style={{
-                      backgroundColor: '#f3f4f6',
-                      padding: '0.75rem',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>{dept}</span>
-                      <span style={{
-                        backgroundColor: '#2563eb',
-                        color: 'white',
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600'
-                      }}>
-                        {count}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Recent Appointments */}
-            <div style={{
-              backgroundColor: 'white',
-              padding: '1.5rem',
-              borderRadius: '8px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem', color: '#111827' }}>
-                Recent Appointments
-              </h2>
-              {appointments.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#6b7280', padding: '2rem' }}>
-                  No appointments yet. Send a message to the WhatsApp bot!
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Patient</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Department</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {appointments.slice(0, 10).map((app) => (
-                        <tr key={app.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                          <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
-                            <div style={{ fontWeight: '500', color: '#111827' }}>{app.patientName || 'Unknown'}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{app.phoneNumber}</div>
-                          </td>
-                          <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-                            {app.department || 'N/A'}
-                          </td>
-                          <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-                            {formatDate(app.preferredDate)}
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <span style={{
-                              padding: '0.25rem 0.75rem',
-                              borderRadius: '9999px',
-                              fontSize: '0.75rem',
-                              fontWeight: '600',
-                              backgroundColor: getStatusColor(app.status).split(' ')[0],
-                              color: getStatusColor(app.status).split(' ')[1]?.replace('text-', '') || '#374151'
-                            }}>
-                              {getStatusLabel(app.status)}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {appointments.length > 10 && (
-                    <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                      <button
-                        onClick={() => setActiveTab('appointments')}
-                        style={{
-                          color: '#2563eb',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem'
-                        }}
-                      >
-                        View all {appointments.length} appointments →
-                      </button>
-                    </div>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {timeSlots.map((time, index) => {
+              const isBooked = [2, 5, 7, 10, 14, 16].includes(index);
+              return (
+                <div
+                  key={time}
+                  className={`
+                    p-3 rounded-lg text-center transition-all duration-200
+                    ${isBooked 
+                      ? 'bg-[#1A3A5C] text-white hover:bg-[#2A5A8C] cursor-pointer' 
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100 cursor-pointer'
+                    }
+                  `}
+                >
+                  <Clock size={14} className={`mx-auto mb-1 ${isBooked ? 'text-[#3B82F6]' : 'text-gray-400'}`} />
+                  <span className="text-xs font-medium">{time}</span>
+                  {isBooked && (
+                    <div className="mt-1 text-xs text-[#94A3B8]">Booked</div>
                   )}
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-        ) : (
-          // Appointments View
-          <div style={{
-            backgroundColor: 'white',
-            padding: '1.5rem',
-            borderRadius: '8px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
-                All Appointments
-              </h2>
-              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                Total: {appointments.length}
-              </span>
-            </div>
-
-            {appointments.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#6b7280', padding: '2rem' }}>
-                No appointments yet.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f9fafb' }}>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Patient</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Type</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Department</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Date & Time</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Symptoms</th>
-                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {appointments.map((app) => (
-                      <tr key={app.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '0.75rem' }}>
-                          <div style={{ fontWeight: '500', color: '#111827' }}>{app.patientName || 'Unknown'}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{app.phoneNumber}</div>
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-                          {app.patientType || 'N/A'}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-                          {app.department || 'N/A'}
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151' }}>
-                          <div>{app.preferredDate || 'TBD'}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{app.preferredTime || 'TBD'}</div>
-                        </td>
-                        <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#374151', maxWidth: '200px', wordBreak: 'break-word' }}>
-                          {app.symptoms || 'N/A'}
-                        </td>
-                        <td style={{ padding: '0.75rem' }}>
-                          <span style={{
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '9999px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            backgroundColor: getStatusColor(app.status).split(' ')[0],
-                            color: getStatusColor(app.status).split(' ')[1]?.replace('text-', '') || '#374151'
-                          }}>
-                            {getStatusLabel(app.status)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
